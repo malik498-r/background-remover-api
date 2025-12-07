@@ -1,3 +1,4 @@
 flask
-rembg
-pillow
+opencv-python-headless
+Pillow
+numpy
