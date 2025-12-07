@@ -1,34 +1,30 @@
-from flask import Flask, request, send_file
-import cv2
-import numpy as np
-from io import BytesIO
+from flask import Flask, request, jsonify, send_file
+from rembg import remove
 from PIL import Image
+import io
+import os
 
 app = Flask(__name__)
 
-def remove_bg(img):
-    # simple grabcut
-    mask = np.zeros(img.shape[:2], np.uint8)
-    bgdModel = np.zeros((1,65),np.float64)
-    fgdModel = np.zeros((1,65),np.float64)
-    h, w = img.shape[:2]
-    rect = (10,10,w-20,h-20)
-    cv2.grabCut(img,mask,rect,bgdModel,fgdModel,5,cv2.GC_INIT_WITH_RECT)
-    mask2 = np.where((mask==2)|(mask==0),0,1).astype('uint8')
-    img = img*mask2[:,:,np.newaxis]
-    return img
+@app.route("/")
+def home():
+    return jsonify({"status": "working"})
 
-@app.route('/remove-bg', methods=['POST'])
-def api():
-    file = request.files['image']
-    img = Image.open(file.stream).convert("RGB")
-    img_np = np.array(img)
-    out = remove_bg(img_np)
-    out_img = Image.fromarray(out)
-    buf = BytesIO()
-    out_img.save(buf, format='PNG')
-    buf.seek(0)
-    return send_file(buf, mimetype='image/png')
+@app.route("/remove-bg", methods=["POST"])
+def remove_bg():
+    if "image" not in request.files:
+        return jsonify({"error": "No image uploaded"}), 400
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8000)
+    image_file = request.files["image"]
+    input_image = Image.open(image_file.stream)
+    output_image = remove(input_image)
+
+    output_bytes = io.BytesIO()
+    output_image.save(output_bytes, format="PNG")
+    output_bytes.seek(0)
+
+    return send_file(output_bytes, mimetype="image/png")
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8000))
+    app.run(host="0.0.0.0", port=port)

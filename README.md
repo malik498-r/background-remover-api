@@ -1,2 +1,2 @@
 # Background Remover API
-Simple Flask API using rembg.
+POST /remove-bg with an image file to remove background.
