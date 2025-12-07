@@ -1,27 +1,34 @@
 from flask import Flask, request, send_file
-from rembg import remove
+import cv2
+import numpy as np
+from io import BytesIO
 from PIL import Image
-import io
 
 app = Flask(__name__)
 
-@app.post("/remove-bg")
-def remove_bg():
-    if 'image' not in request.files:
-        return {"error": "No image uploaded"}, 400
+def remove_bg(img):
+    # simple grabcut
+    mask = np.zeros(img.shape[:2], np.uint8)
+    bgdModel = np.zeros((1,65),np.float64)
+    fgdModel = np.zeros((1,65),np.float64)
+    h, w = img.shape[:2]
+    rect = (10,10,w-20,h-20)
+    cv2.grabCut(img,mask,rect,bgdModel,fgdModel,5,cv2.GC_INIT_WITH_RECT)
+    mask2 = np.where((mask==2)|(mask==0),0,1).astype('uint8')
+    img = img*mask2[:,:,np.newaxis]
+    return img
 
-    img = request.files['image'].read()
-    output = remove(img)
+@app.route('/remove-bg', methods=['POST'])
+def api():
+    file = request.files['image']
+    img = Image.open(file.stream).convert("RGB")
+    img_np = np.array(img)
+    out = remove_bg(img_np)
+    out_img = Image.fromarray(out)
+    buf = BytesIO()
+    out_img.save(buf, format='PNG')
+    buf.seek(0)
+    return send_file(buf, mimetype='image/png')
 
-    return send_file(
-        io.BytesIO(output),
-        mimetype='image/png',
-        download_name='removed.png'
-    )
-
-@app.get("/")
-def home():
-    return {"status": "Background Remover API Running!"}
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8000)
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=8000)
