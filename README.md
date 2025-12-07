@@ -1,2 +1,2 @@
-# background-remover-api
-Ai background remover 
+# Background Remover API
+Simple Flask API using rembg.
